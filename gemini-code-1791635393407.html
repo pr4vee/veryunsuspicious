@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Totally Transparent Access</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            overflow: hidden;
+            /* Explicitly white background as requested, not black. */
+            background-color: #ffffff; 
+            transition: background-color 0.1s;
+        }
+
+        /* Initial transparent state for password page */
+        #access-gate {
+            position: absolute;
+            z-index: 10;
+            background: none; /* Fully transparent */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Visible text for the gate so the user can read the prompt */
+        #access-gate .transparent-text {
+            color: rgba(0, 0, 0, 0.9);
+            -webkit-text-stroke: 1px rgba(0, 0, 0, 0.1);
+            font-weight: bold;
+            font-size: 2em;
+            margin-bottom: 20px;
+            user-select: text;
+        }
+
+        /* Access prompt on input */
+        #code-prompt {
+            font-size: 1.2rem;
+            opacity: 1;
+            margin-bottom: 12px;
+            letter-spacing: 0.04em;
+        }
+
+        #code {
+            padding: 15px;
+            font-size: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 8px;
+            width: 250px;
+            outline: none;
+            color: rgba(0,0,0,0.9);
+            background-color: rgba(255,255,255,0.8);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.02);
+        }
+        
+        /* The revolving photo element, initially hidden */
+        #jane-photo-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+            background-color: transparent; /* Initially transparent background */
+        }
+
+        #jane-photo {
+            max-width: 50%; /* Start at half-size */
+            max-height: 50%;
+            display: block;
+            border-radius: 10px;
+            /* Transition for growing */
+            transition: transform 1.5s ease-out, max-width 1.5s ease-out, max-height 1.5s ease-out;
+        }
+
+        /* Transition state: large and revolving */
+        #jane-photo-container.unlocking #jane-photo {
+            max-width: 200vw; /* Grow massively */
+            max-height: 200vh;
+            /* Revolving (spinning) animation */
+            animation: revolve 3s linear infinite;
+        }
+
+        @keyframes revolve {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Happy birthday text: transparent fill, colorful glow, soft shimmer */
+        #birthday-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 6;
+            font-family: 'Comic Sans MS', 'Impact', fantasy;
+            font-size: 10vw;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 0.08em;
+            color: transparent;
+            -webkit-text-stroke: 3px rgba(255, 255, 255, 0.9);
+            background-image: linear-gradient(
+                90deg,
+                rgba(255, 100, 150, 0.0) 0%,
+                rgba(255, 180, 0, 0.0) 20%,
+                rgba(255, 0, 120, 0.0) 40%,
+                rgba(102, 255, 204, 0.0) 60%,
+                rgba(120, 180, 255, 0.0) 80%,
+                rgba(255, 100, 150, 0.0) 100%
+            );
+            background-size: 300% 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            text-shadow: 0 0 12px rgba(255, 120, 180, 0.8),
+                         0 0 24px rgba(255, 220, 120, 0.7),
+                         0 0 40px rgba(120, 220, 255, 0.6);
+            animation: birthdayGlow 3s ease-in-out infinite alternate, birthdayShift 6s linear infinite;
+        }
+
+        @keyframes birthdayGlow {
+            0% {
+                filter: drop-shadow(0 0 8px rgba(255, 160, 200, 0.8))
+                        drop-shadow(0 0 18px rgba(255, 220, 120, 0.8));
+            }
+            100% {
+                filter: drop-shadow(0 0 14px rgba(255, 120, 180, 1))
+                        drop-shadow(0 0 32px rgba(120, 220, 255, 0.95));
+            }
+        }
+
+        @keyframes birthdayShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #birthday-text.flashing {
+            animation: birthdayGlow 2s ease-in-out infinite alternate, birthdayShift 4s linear infinite;
+        }
+        
+        /* The button should also be transparent and border-less, just clickable area */
+        #verify-btn {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border: 2px solid transparent;
+            background: transparent;
+            color: transparent;
+            border-radius: 5px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        
+        #access-gate #code:focus + #verify-btn,
+        #access-gate #code:hover + #verify-btn,
+        #verify-btn:hover {
+             /* Subtle border on interaction so the button is findable when needed */
+             border-color: rgba(0,0,0,0.2); 
+             color: rgba(0,0,0,0.5); 
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Access Gate: Completely transparent text on a white background -->
+    <div id="access-gate">
+        <label for="code" class="transparent-text">TYPE PWD ABOVE</label>
+        <div class="transparent-text" id="code-prompt">ENTER 4-DIGIT CODE</div>
+        <input type="text" id="code" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="....">
+        <button id="verify-btn">Verify</button>
+    </div>
+
+    <!-- The container for Patrick Jane's photo, hidden until unlocked -->
+    <div id="jane-photo-container">
+        <!-- Replaced image URL with the user-provided image -->
+        <img id="jane-photo" src="C:\Users\Windows\Downloads\sgbday.jpg" alt="Birthday image">
+    </div>
+
+    <!-- The birthday message, hidden until unlocked, with transparent text/visible background effect -->
+    <div id="birthday-text" class="transparent-text flashing">HAPPY BIRTHDAY!</div>
+
+    <script>
+        const body = document.body;
+        const gate = document.getElementById('access-gate');
+        const photoContainer = document.getElementById('jane-photo-container');
+        const photo = document.getElementById('jane-photo');
+        const bdayText = document.getElementById('birthday-text');
+        const codeInput = document.getElementById('code');
+        const verifyBtn = document.getElementById('verify-btn');
+
+        let isUnlocked = false;
+
+        // --- Simplified Synthesized Sound for Badly Made Purpose ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function createSynthExplosionSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            // Create a short, messy, explosive sound
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'sawtooth'; // Rough and harsh
+            osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5); // Fast drop-off
+
+            // Create some distortion and chaos
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            filter.Q.setValueAtTime(10, audioCtx.currentTime); // High resonance for harshness
+
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5); // Fade out
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.5);
+        }
+
+        // --- Celebration Arpeggio (Simple and happy, still synthesized) ---
+        function createSynthCelebrationSound() {
+             if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const melody = [
+                { note: 261.63, duration: 0.15 }, // C4
+                { note: 329.63, duration: 0.15 }, // E4
+                { note: 392.00, duration: 0.15 }, // G4
+                { note: 523.25, duration: 0.3 }  // C5
+            ];
+
+            let currentTime = audioCtx.currentTime + 0.5; // Start after explosion
+
+            melody.forEach(item => {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                osc.type = 'sine'; // Clean for melody
+                osc.frequency.setValueAtTime(item.note, currentTime);
+
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                gainNode.gain.setValueAtTime(0.5, currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, currentTime + item.duration);
+
+                osc.start(currentTime);
+                osc.stop(currentTime + item.duration);
+
+                currentTime += item.duration;
+            });
+        }
+
+        function createWrongPasswordBeep() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const start = audioCtx.currentTime;
+            const notes = [220, 180, 120];
+
+            notes.forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, start + index * 0.12);
+
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                gainNode.gain.setValueAtTime(0.001, start + index * 0.12);
+                gainNode.gain.exponentialRampToValueAtTime(1.2, start + index * 0.12 + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, start + index * 0.12 + 0.18);
+
+                osc.start(start + index * 0.12);
+                osc.stop(start + index * 0.12 + 0.18);
+            });
+        }
+
+        function triggerAccessDenied() {
+            createWrongPasswordBeep();
+            codeInput.value = "";
+            codeInput.focus();
+            codeInput.style.borderColor = 'rgba(255,0,0,0.8)';
+            setTimeout(() => {
+                codeInput.style.borderColor = 'rgba(0,0,0,0.2)';
+            }, 250);
+        }
+
+        function unlockContent() {
+            if (isUnlocked) return;
+            isUnlocked = true;
+
+            // Hide the access gate fully
+            gate.style.display = 'none';
+
+            // Keep a clean, celebratory background instead of a black/white strobe
+            body.style.overflow = 'hidden';
+            body.style.backgroundColor = '#ffffff';
+            body.style.animation = '';
+
+            // Play a happy success sound
+            createSynthCelebrationSound();
+
+            // Reveal the photo container
+            photoContainer.style.display = 'flex';
+
+            requestAnimationFrame(() => {
+                 photoContainer.classList.add('unlocking');
+            });
+
+            // Keep the reveal smooth and celebratory without the harsh flash effect
+            setTimeout(() => {
+                bdayText.style.display = 'block';
+                body.style.backgroundColor = '#ffffff';
+            }, 1500);
+        }
+
+        function checkPassword() {
+            const enteredCode = codeInput.value;
+            if (enteredCode === '1009') {
+                unlockContent();
+            } else {
+                triggerAccessDenied();
+            }
+        }
+
+        // Listen for 'Enter' key press or button click
+        codeInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        verifyBtn.addEventListener('click', checkPassword);
+        
+        // Ensure the input field is visible/selectable despite being technically transparent
+        document.addEventListener('click', function() {
+            if (!isUnlocked) {
+                 codeInput.focus();
+            }
+        });
+
+    </script>
+</body>
+</html>
